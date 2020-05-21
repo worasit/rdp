@@ -5,6 +5,12 @@ import org.apache.beam.sdk.coders.DefaultCoder;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.Sum;
+import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TypeDescriptors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -127,4 +133,26 @@ public class UserScore {
         }
     }
 
+    /**
+     * A transform to extract key/score information from GameActionInfo, and sum the scores.  The
+     * constructor arg determines whether 'team' or 'user' info is extracted.
+     */
+    public static class ExtractAndSumScore extends PTransform<PCollection<GameActionInfo>, PCollection<KV<String, Integer>>> {
+
+        private final String field;
+
+        public ExtractAndSumScore(String field) {
+            this.field = field;
+        }
+
+        @Override
+        public PCollection<KV<String, Integer>> expand(PCollection<GameActionInfo> gameActionInfo) {
+            return gameActionInfo
+                    .apply(
+                            MapElements
+                                    .into(TypeDescriptors.kvs(TypeDescriptors.strings(), TypeDescriptors.integers()))
+                                    .via((GameActionInfo gInfo) -> KV.of(gInfo.getKey(field), gInfo.getScore())))
+                    .apply(Sum.integersPerKey());
+        }
+    }
 }

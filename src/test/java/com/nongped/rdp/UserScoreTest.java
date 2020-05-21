@@ -8,6 +8,7 @@ import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.testing.ValidatesRunner;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.DateTime;
 import org.junit.Rule;
@@ -58,6 +59,29 @@ public class UserScoreTest {
 
         // Assert
         PAssert.that(output).containsInAnyOrder(gameActionInfoA);
+        pipeline.run().waitUntilFinish();
+    }
+
+    @Test
+    @Category(ValidatesRunner.class)
+    public void ExtractAndSumScore() throws Exception {
+        // Arrange
+        String key = "";
+        String expectedTeam = "AsparagusPig";
+        final GameActionInfo[] GAME_INFOS = new GameActionInfo[]{
+                new GameActionInfo("user1_AsparagusPig", expectedTeam, 50, 1445230923959L),
+                new GameActionInfo("user1_AsparagusPig", expectedTeam, 20, 1445230923959L),
+                new GameActionInfo("user2_AsparagusPig", expectedTeam, 10, 1445230923951L),
+                new GameActionInfo("user2_AsparagusPig", expectedTeam, 20, 1445230923959L)
+        };
+        PCollection<GameActionInfo> input = pipeline.apply(Create.of(Arrays.asList(GAME_INFOS)));
+        List<KV<String, Integer>> expected = Arrays.asList(KV.of("user2_AsparagusPig", 30), KV.of("user1_AsparagusPig", 70));
+
+        // Act
+        PCollection<KV<String, Integer>> output = input.apply(new UserScore.ExtractAndSumScore(key));
+
+        // Assert
+        PAssert.that(output).containsInAnyOrder(expected);
         pipeline.run().waitUntilFinish();
     }
 }
