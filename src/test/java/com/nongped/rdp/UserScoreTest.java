@@ -11,10 +11,10 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.DateTime;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-import org.junit.jupiter.api.Assertions;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -37,7 +37,7 @@ public class UserScoreTest {
         int hashCodeB = gameActionInfoB.hashCode();
 
         // Assert
-        Assertions.assertEquals(hashCodeA, hashCodeB);
+        Assert.assertEquals(hashCodeA, hashCodeB);
     }
 
     @Rule

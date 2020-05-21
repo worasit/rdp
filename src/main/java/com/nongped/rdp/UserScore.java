@@ -1,13 +1,13 @@
 package com.nongped.rdp;
 
+import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.coders.DefaultCoder;
+import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.MapElements;
-import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.transforms.Sum;
+import org.apache.beam.sdk.options.*;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
@@ -154,5 +154,49 @@ public class UserScore {
                                     .via((GameActionInfo gInfo) -> KV.of(gInfo.getKey(field), gInfo.getScore())))
                     .apply(Sum.integersPerKey());
         }
+    }
+
+    public interface Options extends PipelineOptions {
+
+        /**
+         * The default maps to two large Google Cloud Storage files (each ~12GB) holding two subsequent
+         * day's worth (roughly) of data.
+         * Note: You may want to use a small sample dataset to test it locally/quickly : gs://apache-beam-samples/game/small/gaming_data.csv
+         * You can also download it via the command line gsutil cp gs://apache-beam-samples/game/small/gaming_data.csv ./destination_folder/gaming_data.csv
+         */
+        @Description("Path to the data file(s) containing game data.")
+        @Default.String("gs://apache-beam-samples/game/small/gaming_data.csv")
+        String getInput();
+
+        void setInput(String value);
+
+
+        @Description("Path of the file to write to.")
+        @Validation.Required
+        String getOutput();
+
+        void setOutput(String value);
+    }
+
+    public static class FormatAsTextFn extends SimpleFunction<KV<String, Integer>, String> {
+        @Override
+        public String apply(KV<String, Integer> input) {
+            return String.format("%s: %d", input.getKey(), input.getValue());
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        System.out.println("Start");
+        Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
+        Pipeline pipeline = Pipeline.create(options);
+
+        pipeline
+                .apply("Read input CSV from GCS", TextIO.read().from(options.getInput()))
+                .apply("Parse Game Event", ParDo.of(new ParseEventFn()))
+                .apply("Extract and Sum Scores", new ExtractAndSumScore("user"))
+                .apply("Format into text", MapElements.via(new FormatAsTextFn()))
+                .apply("Write Scores", TextIO.write().to(options.getOutput()));
+
+        pipeline.run().waitUntilFinish();
     }
 }
